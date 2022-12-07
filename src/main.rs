@@ -80,7 +80,7 @@ impl Player {
     fn new() -> Self {
         Self {
             rect: Rect::new(
-                screen_width() * 0.5f32 - PLAYER_SIZE.x*0.5f32,
+                screen_width() * 0.5f32 - PLAYER_SIZE.x * 0.5f32,
                 screen_height() - PLAYER_RPOS_Y,
                 PLAYER_SIZE.x,
                 PLAYER_SIZE.y
@@ -323,6 +323,7 @@ impl Game {
     }
 
     fn state_launch_new_ball(&mut self) {
+        self.player.update(get_frame_time());
         if is_key_down(KeyCode::Space) {
             self.state = GameState::Game;
             self.spawn_ball_next_to_player();
