@@ -67,6 +67,7 @@ fn generate_blocks() -> Vec<Block> {
 pub enum GameState {
     Menu,
     Game,
+    LaunchNewBall,
     LevelCompleted,
     GameOver,
 }
@@ -273,15 +274,18 @@ impl Game {
         }
 
         let balls_len = self.balls.len();
+        // Remove balls below the screen
         self.balls.retain(|ball| ball.rect.y < screen_height());
 
         let removed_balls = balls_len - self.balls.len();
         if removed_balls > 0 && self.balls.is_empty(){
             self.lives -= 1;
-            self.spawn_ball_next_to_player();
+            self.state = GameState::LaunchNewBall;
+
             if self.lives <= 0 {
                 self.state = GameState::GameOver;
             }
+
         }
 
         self.blocks.retain(|block| block.lives > 0);
@@ -289,6 +293,10 @@ impl Game {
             self.state = GameState::LevelCompleted;
         }
 
+        self.draw_game();
+    }
+
+    fn draw_game(&mut self){
         self.player.draw();
         for block in self.blocks.iter() {
             block.draw();
@@ -296,7 +304,6 @@ impl Game {
         for ball in self.balls.iter() {
             ball.draw();
         }
-
         let score_text = format!("score: {}", self.score);
         let score_text_dim = measure_text(&score_text, Some(self.font), FONT_SIZE, 1.0);
         let text_params = TextParams { font: self.font, font_size: FONT_SIZE, color: BLACK, ..Default::default() };
@@ -313,6 +320,14 @@ impl Game {
             HEADER_POS.y,
             text_params,
         );
+    }
+
+    fn state_launch_new_ball(&mut self) {
+        if is_key_down(KeyCode::Space) {
+            self.state = GameState::Game;
+            self.spawn_ball_next_to_player();
+        }
+        self.draw_game();
     }
 
     fn state_level_completed(&mut self) {
@@ -344,6 +359,9 @@ impl Game {
             },
             GameState::GameOver => {
                 self.state_game_over();
+            },
+            GameState::LaunchNewBall => {
+                self.state_launch_new_ball();
             }
         }
 
