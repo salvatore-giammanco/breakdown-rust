@@ -1,12 +1,18 @@
 use macroquad::prelude::*;
+use media::audio::GameAudio;
+use game::player::Player;
+use game::ball::Ball;
+use game::block::{Block, BlockType};
+
+mod media;
+mod game;
 
 const SCALE: f32 = 0.8;
 const HEADER_POS: Vec2 = const_vec2!([30f32 * SCALE, 40f32 * SCALE]);
 const FONT_SIZE: u16 = (30f32 * SCALE) as u16;
 const PLAYER_SIZE: Vec2 = const_vec2!([150f32 * SCALE, 20f32 * SCALE]);
 const PLAYER_SPEED: f32 = 750f32;
-const PLAYER_RPOS_Y: f32 = 50f32 * SCALE;
-const BLOCK_SIZE: Vec2 = const_vec2!([40f32 * SCALE, 40f32 * SCALE]);
+const PLAYER_RELATIVE_POS_Y: f32 = 50f32 * SCALE;
 const BALL_SIZE: f32 = 20f32 * SCALE;
 const BALL_SPEED: f32 = 400f32;
 
@@ -20,40 +26,19 @@ pub fn draw_title_text(text: &str, font: Font) {
     );
 }
 
-fn resolve_collision(a: &mut Rect, vel: &mut Vec2, b: &Rect) -> bool {
-    if let Some(intersection) = a.intersect(*b) {
-        let a_center = a.point() + a.size() * 0.5f32;
-        let b_center = b.point() + b.size() * 0.5f32;
-        let to = b_center - a_center;
-        let to_signum = to.signum();
-        match intersection.w > intersection.h {
-            true => {
-                // Bounce on y
-                a.y -= to_signum.y * intersection.h;
-                vel.y = -to_signum.y * vel.y.abs();
-            },
-            false => {
-                // Bounce on x
-                a.x -= to_signum.x * intersection.w;
-                vel.x = -to_signum.x * vel.x.abs();
-            }
-        }
-        return true
-    }
-    false
-}
-
 fn generate_blocks() -> Vec<Block> {
     let mut blocks = Vec::new();
     let (width, height) = (15, 6);
     let padding = 5f32;
-    let total_block_size = BLOCK_SIZE + vec2(padding, padding);
+    let screen_scale: f32 = screen_width() / 800.0;
+    let block_size: f32 = 40f32 * SCALE * screen_scale;
+    let total_block_size = vec2(block_size, block_size) + vec2(padding, padding);
     let board_start_pos = vec2((screen_width()- (total_block_size.x * width as f32))* 0.5f32, 50f32);
 
     for i in 0..width * height {
         let block_x = (i % width) as f32 * total_block_size.x;
         let block_y = (i / width) as f32 * total_block_size.y;
-        blocks.push(Block::new(board_start_pos + vec2(block_x, block_y), BlockType::Regular));
+        blocks.push(Block::new(board_start_pos + vec2(block_x, block_y), BlockType::Regular, block_size));
     }
 
     for _ in 0..3 {
@@ -72,126 +57,6 @@ pub enum GameState {
     GameOver,
 }
 
-struct Player {
-    rect: Rect,
-}
-
-impl Player {
-    fn new() -> Self {
-        Self {
-            rect: Rect::new(
-                screen_width() * 0.5f32 - PLAYER_SIZE.x * 0.5f32,
-                screen_height() - PLAYER_RPOS_Y,
-                PLAYER_SIZE.x,
-                PLAYER_SIZE.y
-            )
-        }
-    }
-
-    pub fn update(&mut self, dt: f32) {
-        let x_move = match (is_key_down(KeyCode::Left), is_key_down(KeyCode::Right)) {
-            (true, false) => -1f32,
-            (false, true) => 1f32,
-            _ => 0f32,
-        };
-        self.rect.x += x_move * dt * PLAYER_SPEED;
-
-        if self.rect.x <= 0f32 {
-            self.rect.x = 0f32;
-        }
-        if self.rect.x + self.rect.w >= screen_width() {
-            self.rect.x = screen_width() - self.rect.w;
-        }
-
-    }
-
-    pub fn draw(&self) {
-        draw_rectangle(self.rect.x, self.rect.y, self.rect.w, self.rect.h, BLUE);
-    }
-}
-
-#[derive(PartialEq)]
-enum BlockType {
-    Regular,
-    SpawnBallOnDeath
-}
-
-struct Block {
-    rect: Rect,
-    lives: i32,
-    block_type: BlockType,
-}
-
-impl Block {
-    fn new(pos: Vec2, block_type: BlockType) -> Self {
-        Self {
-            rect: Rect::new(
-                pos.x,
-                pos.y,
-                BLOCK_SIZE.x,
-                BLOCK_SIZE.y
-            ),
-            lives: 2,
-            block_type,
-        }
-    }
-
-    pub fn draw(&self) {
-        let color = match self.block_type {
-            BlockType::Regular => {
-                match self.lives {
-                    2 => RED,
-                    1 => ORANGE,
-                    _ => BLACK,
-                }
-            },
-            BlockType::SpawnBallOnDeath => GREEN,
-        };
-        draw_rectangle(self.rect.x, self.rect.y, self.rect.w, self.rect.h, color);
-    }
-}
-
-pub struct Ball {
-    rect: Rect,
-    vel: Vec2,
-}
-
-impl Ball {
-    pub fn new(pos: Vec2) -> Self {
-        Self {
-            rect: Rect::new(
-                pos.x,
-                pos.y,
-                BALL_SIZE,
-                BALL_SIZE
-            ),
-            vel: vec2(rand::gen_range(-1f32, 1f32), 1f32).normalize(),
-        }
-    }
-
-    pub fn update(&mut self, dt: f32) {
-        self.rect.x += self.vel.x * dt * BALL_SPEED;
-        self.rect.y += self.vel.y * dt * BALL_SPEED;
-
-        if self.rect.x < 0f32 {
-            self.vel.x = 1f32;
-        }
-
-        if self.rect.x + self.rect.w > screen_width() {
-            self.vel.x = -1f32;
-        }
-
-        if self.rect.y < 0f32 {
-            self.vel.y = 1f32;
-        }
-
-    }
-
-
-    pub fn draw(&self) {
-        draw_rectangle(self.rect.x, self.rect.y, self.rect.w, self.rect.h, BLUE);
-    }
-}
 
 struct Game {
     state: GameState,
@@ -201,6 +66,7 @@ struct Game {
     font: Font,
     score: i32,
     lives: i32,
+    audio: GameAudio
 }
 
 impl Game {
@@ -209,19 +75,22 @@ impl Game {
     }
 
     pub async fn new() -> Self {
+        let ball_position = vec2(screen_width() * 0.5f32, screen_height() - PLAYER_RELATIVE_POS_Y - PLAYER_SIZE.y);
         Self {
             state: GameState::Menu,
-            player: Player::new(),
-            balls: vec![Ball::new(vec2(screen_width() * 0.5f32, screen_height() - PLAYER_RPOS_Y - PLAYER_SIZE.y))],
+            player: Player::new(PLAYER_SIZE, PLAYER_SPEED, PLAYER_RELATIVE_POS_Y),
+            balls: vec![Ball::new(ball_position, BALL_SIZE, BALL_SPEED)],
             blocks: generate_blocks(),
-            font: load_ttf_font("./res/Roboto-Regular.ttf").await.unwrap(),
+            font: load_ttf_font_from_bytes(include_bytes!("../res/Roboto-Regular.ttf")).unwrap(),
             score: 0,
             lives: 3,
+            audio: GameAudio::new().await,
         }
     }
 
     fn new_ball_next_to_player(&self) -> Ball{
-        Ball::new(self.player.rect.point() + vec2(self.player.rect.w*0.5f32-BALL_SIZE*0.5f32, -PLAYER_SIZE.y))
+        let ball_position = self.player.rect.point() + vec2(self.player.rect.w*0.5f32-BALL_SIZE*0.5f32, -PLAYER_SIZE.y);
+        Ball::new(ball_position, BALL_SIZE, BALL_SPEED)
     }
 
     pub fn spawn_ball_next_to_player(&mut self) {
@@ -229,7 +98,7 @@ impl Game {
     }
 
     pub fn spawn_ball(&mut self, point: Vec2) {
-        self.balls.push(Ball::new(point));
+        self.balls.push(Ball::new(point, BALL_SIZE, BALL_SPEED));
     }
 
     pub fn reset(&mut self) {
@@ -241,7 +110,7 @@ impl Game {
     }
 
     fn state_menu(&mut self) {
-        draw_title_text("Press SPACE to start", self.font);
+        draw_title_text(&format!("Press SPACE to start Screen size: {:?}, {:?}", screen_width(), screen_height()), self.font);
         if is_key_down(KeyCode::Space) {
             self.state = GameState::Game;
         }
@@ -255,9 +124,12 @@ impl Game {
 
         let mut spawn_later = Vec::new();
         for ball in self.balls.iter_mut() {
-            resolve_collision(&mut ball.rect, &mut ball.vel, &self.player.rect);
+            if ball.bounce(&self.player.rect) {
+                self.audio.play_single(self.audio.hit_player);
+            }
             for block in self.blocks.iter_mut() {
-                if resolve_collision(&mut ball.rect, &mut ball.vel, &block.rect) {
+                if ball.bounce(&block.rect) {
+                    self.audio.play_single(self.audio.hit_block);
                     block.lives -= 1;
                     if block.lives <= 0 {
                         self.score += 10;
@@ -280,6 +152,7 @@ impl Game {
         let removed_balls = balls_len - self.balls.len();
         if removed_balls > 0 && self.balls.is_empty(){
             self.lives -= 1;
+            self.audio.play_single(self.audio.hit_floor);
             self.state = GameState::LaunchNewBall;
 
             if self.lives <= 0 {
@@ -372,6 +245,7 @@ impl Game {
 #[macroquad::main("breakout")]
 async fn main() {
     let mut game = Game::new().await;
+
 
     loop {
         clear_background(WHITE);
