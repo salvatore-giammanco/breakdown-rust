@@ -145,14 +145,7 @@ impl Game {
     }
 
     fn state_menu(&mut self) {
-        draw_title_text(
-            &format!(
-                "Press SPACE to start Screen size: {:?}, {:?}",
-                screen_width(),
-                screen_height()
-            ),
-            self.font,
-        );
+        draw_title_text("Press SPACE to start Screen size", self.font);
         if is_key_down(KeyCode::Space) {
             self.state = GameState::Game;
         }
