@@ -13,6 +13,7 @@ const SCREEN_SCALE_FACTOR: f32 = 800.0;
 const BLOCK_SIZE: f32 = 40.0;
 const HEADER_POS: Vec2 = Vec2::from_array([5f32, 25f32]);
 const FONT_SIZE: u16 = 24;
+const TITLE_FONT_SIZE: u16 = 32;
 const PLAYER_SIZE: Vec2 = Vec2::from_array([150f32, 20f32]);
 const PLAYER_SPEED: f32 = 750f32;
 const PLAYER_RELATIVE_POS_Y: f32 = 50f32;
@@ -20,14 +21,14 @@ const BALL_SIZE: f32 = 20f32;
 const BALL_SPEED: f32 = 400f32;
 
 pub fn draw_title_text(text: &str, font: Font) {
-    let dims = measure_text(text, Some(font), FONT_SIZE, 1.0);
+    let dims = measure_text(text, Some(font), TITLE_FONT_SIZE, 1.0);
     draw_text_ex(
         text,
         screen_width() * 0.5f32 - dims.width * 0.5f32,
         screen_height() * 0.5f32 - dims.height * 0.5f32,
         TextParams {
             font,
-            font_size: FONT_SIZE,
+            font_size: TITLE_FONT_SIZE,
             color: BLACK,
             ..Default::default()
         },
@@ -218,24 +219,25 @@ impl Game {
             ball.draw();
         }
         let score_text = format!("score: {}", self.score);
-        let score_text_dim = measure_text(&score_text, Some(self.font), FONT_SIZE, 1.0);
+        let final_font_size = (FONT_SIZE as f32 * self.scale.total_scale) as u16;
+        let score_text_dim = measure_text(&score_text, Some(self.font), final_font_size, 1.0);
         let text_params = TextParams {
             font: self.font,
-            font_size: FONT_SIZE,
+            font_size: final_font_size,
             color: BLACK,
             ..Default::default()
         };
         draw_text_ex(
             &score_text,
             screen_width() * 0.5f32 - score_text_dim.width * 0.5f32,
-            HEADER_POS.y,
+            HEADER_POS.y * self.scale.total_scale,
             text_params,
         );
 
         draw_text_ex(
             &format!("lives: {}", self.lives),
             HEADER_POS.x,
-            HEADER_POS.y,
+            HEADER_POS.y * self.scale.total_scale,
             text_params,
         );
     }

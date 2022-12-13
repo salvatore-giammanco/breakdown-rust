@@ -4,6 +4,7 @@ use macroquad::prelude::*;
 pub struct Player {
     pub rect: Rect,
     speed: f32,
+    relative_pos_y: f32,
 }
 
 impl Player {
@@ -15,7 +16,8 @@ impl Player {
                 size.x * scale.total_scale,
                 size.y * scale.total_scale,
             ),
-            speed,
+            speed: speed * scale.total_scale,
+            relative_pos_y,
         }
     }
 
@@ -33,6 +35,8 @@ impl Player {
         if self.rect.x + self.rect.w >= screen_width() {
             self.rect.x = screen_width() - self.rect.w;
         }
+
+        self.rect.y = screen_height() - self.relative_pos_y;
     }
 
     pub fn draw(&self) {
