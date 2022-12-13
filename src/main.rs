@@ -1,19 +1,22 @@
-use macroquad::prelude::*;
-use media::audio::GameAudio;
-use game::player::Player;
 use game::ball::Ball;
 use game::block::{Block, BlockType};
+use game::player::Player;
+use game::scale::Scale;
+use macroquad::prelude::*;
+use media::audio::GameAudio;
 
-mod media;
 mod game;
+mod media;
 
 const SCALE: f32 = 0.8;
-const HEADER_POS: Vec2 = const_vec2!([30f32 * SCALE, 40f32 * SCALE]);
-const FONT_SIZE: u16 = (30f32 * SCALE) as u16;
-const PLAYER_SIZE: Vec2 = const_vec2!([150f32 * SCALE, 20f32 * SCALE]);
+const SCREEN_SCALE_FACTOR: f32 = 800.0;
+const BLOCK_SIZE: f32 = 40.0;
+const HEADER_POS: Vec2 = Vec2::from_array([5f32, 25f32]);
+const FONT_SIZE: u16 = 24;
+const PLAYER_SIZE: Vec2 = Vec2::from_array([150f32, 20f32]);
 const PLAYER_SPEED: f32 = 750f32;
-const PLAYER_RELATIVE_POS_Y: f32 = 50f32 * SCALE;
-const BALL_SIZE: f32 = 20f32 * SCALE;
+const PLAYER_RELATIVE_POS_Y: f32 = 50f32;
+const BALL_SIZE: f32 = 20f32;
 const BALL_SPEED: f32 = 400f32;
 
 pub fn draw_title_text(text: &str, font: Font) {
@@ -22,31 +25,13 @@ pub fn draw_title_text(text: &str, font: Font) {
         text,
         screen_width() * 0.5f32 - dims.width * 0.5f32,
         screen_height() * 0.5f32 - dims.height * 0.5f32,
-        TextParams { font, font_size: FONT_SIZE, color: BLACK, ..Default::default() },
+        TextParams {
+            font,
+            font_size: FONT_SIZE,
+            color: BLACK,
+            ..Default::default()
+        },
     );
-}
-
-fn generate_blocks() -> Vec<Block> {
-    let mut blocks = Vec::new();
-    let (width, height) = (15, 6);
-    let padding = 5f32;
-    let screen_scale: f32 = screen_width() / 800.0;
-    let block_size: f32 = 40f32 * SCALE * screen_scale;
-    let total_block_size = vec2(block_size, block_size) + vec2(padding, padding);
-    let board_start_pos = vec2((screen_width()- (total_block_size.x * width as f32))* 0.5f32, 50f32);
-
-    for i in 0..width * height {
-        let block_x = (i % width) as f32 * total_block_size.x;
-        let block_y = (i / width) as f32 * total_block_size.y;
-        blocks.push(Block::new(board_start_pos + vec2(block_x, block_y), BlockType::Regular, block_size));
-    }
-
-    for _ in 0..3 {
-        let rand_index = rand::gen_range(0, blocks.len());
-        blocks[rand_index].block_type = BlockType::SpawnBallOnDeath;
-    }
-
-    return blocks;
 }
 
 pub enum GameState {
@@ -57,7 +42,6 @@ pub enum GameState {
     GameOver,
 }
 
-
 struct Game {
     state: GameState,
     player: Player,
@@ -66,31 +50,75 @@ struct Game {
     font: Font,
     score: i32,
     lives: i32,
-    audio: GameAudio
+    audio: GameAudio,
+    scale: Scale,
 }
 
 impl Game {
-    pub fn init_blocks(&mut self) {
-        self.blocks = generate_blocks();
+    fn generate_blocks() -> Vec<Block> {
+        let mut blocks = Vec::new();
+        let (width, height) = (15, 6);
+        let padding = 5f32;
+        let screen_scale: f32 = screen_width() / SCREEN_SCALE_FACTOR;
+        let block_size: f32 = BLOCK_SIZE * SCALE * screen_scale;
+        let total_block_size = vec2(block_size, block_size) + vec2(padding, padding);
+        let board_start_pos = vec2(
+            (screen_width() - (total_block_size.x * width as f32)) * 0.5f32,
+            50f32,
+        );
+
+        for i in 0..width * height {
+            let block_x = (i % width) as f32 * total_block_size.x;
+            let block_y = (i / width) as f32 * total_block_size.y;
+            blocks.push(Block::new(
+                board_start_pos + vec2(block_x, block_y),
+                BlockType::Regular,
+                block_size,
+            ));
+        }
+
+        // TODO: Remove this after implementing the new upgrades
+        for _ in 0..3 {
+            let rand_index = rand::gen_range(0, blocks.len());
+            blocks[rand_index].block_type = BlockType::SpawnBallOnDeath;
+        }
+
+        return blocks;
     }
 
-    pub async fn new() -> Self {
-        let ball_position = vec2(screen_width() * 0.5f32, screen_height() - PLAYER_RELATIVE_POS_Y - PLAYER_SIZE.y);
+    pub async fn new(scale: Scale) -> Self {
+        let ball_position = vec2(
+            screen_width() * 0.5f32,
+            screen_height() - PLAYER_RELATIVE_POS_Y - PLAYER_SIZE.y,
+        );
         Self {
             state: GameState::Menu,
-            player: Player::new(PLAYER_SIZE, PLAYER_SPEED, PLAYER_RELATIVE_POS_Y),
-            balls: vec![Ball::new(ball_position, BALL_SIZE, BALL_SPEED)],
-            blocks: generate_blocks(),
+            player: Player::new(PLAYER_SIZE, PLAYER_SPEED, PLAYER_RELATIVE_POS_Y, scale),
+            balls: vec![Ball::new(
+                ball_position,
+                BALL_SIZE * scale.total_scale,
+                BALL_SPEED * scale.total_scale,
+            )],
+            blocks: Game::generate_blocks(),
             font: load_ttf_font_from_bytes(include_bytes!("../res/Roboto-Regular.ttf")).unwrap(),
             score: 0,
             lives: 3,
             audio: GameAudio::new().await,
+            scale: scale,
         }
     }
 
-    fn new_ball_next_to_player(&self) -> Ball{
-        let ball_position = self.player.rect.point() + vec2(self.player.rect.w*0.5f32-BALL_SIZE*0.5f32, -PLAYER_SIZE.y);
-        Ball::new(ball_position, BALL_SIZE, BALL_SPEED)
+    fn new_ball_next_to_player(&self) -> Ball {
+        let ball_position = self.player.rect.point()
+            + vec2(
+                self.player.rect.w * 0.5f32 - BALL_SIZE * 0.5f32,
+                -PLAYER_SIZE.y,
+            );
+        Ball::new(
+            ball_position,
+            BALL_SIZE * self.scale.total_scale,
+            BALL_SPEED * self.scale.total_scale,
+        )
     }
 
     pub fn spawn_ball_next_to_player(&mut self) {
@@ -98,25 +126,38 @@ impl Game {
     }
 
     pub fn spawn_ball(&mut self, point: Vec2) {
-        self.balls.push(Ball::new(point, BALL_SIZE, BALL_SPEED));
+        self.balls.push(Ball::new(
+            point,
+            BALL_SIZE * self.scale.total_scale,
+            BALL_SPEED * self.scale.total_scale,
+        ));
     }
 
     pub fn reset(&mut self) {
         self.score = 0;
         self.lives = 3;
-        self.player.rect.x = screen_width() * 0.5f32 - PLAYER_SIZE.x*0.5f32;
+        self.scale.update();
+        self.player.rect.x = screen_width() * 0.5f32 - PLAYER_SIZE.x * 0.5f32;
         self.balls = vec![self.new_ball_next_to_player()];
-        self.init_blocks();
+        self.blocks = Game::generate_blocks();
+        self.scale.update();
     }
 
     fn state_menu(&mut self) {
-        draw_title_text(&format!("Press SPACE to start Screen size: {:?}, {:?}", screen_width(), screen_height()), self.font);
+        draw_title_text(
+            &format!(
+                "Press SPACE to start Screen size: {:?}, {:?}",
+                screen_width(),
+                screen_height()
+            ),
+            self.font,
+        );
         if is_key_down(KeyCode::Space) {
             self.state = GameState::Game;
         }
     }
 
-    fn state_game(&mut self){
+    fn state_game(&mut self) {
         self.player.update(get_frame_time());
         for ball in self.balls.iter_mut() {
             ball.update(get_frame_time());
@@ -150,7 +191,7 @@ impl Game {
         self.balls.retain(|ball| ball.rect.y < screen_height());
 
         let removed_balls = balls_len - self.balls.len();
-        if removed_balls > 0 && self.balls.is_empty(){
+        if removed_balls > 0 && self.balls.is_empty() {
             self.lives -= 1;
             self.audio.play_single(self.audio.hit_floor);
             self.state = GameState::LaunchNewBall;
@@ -158,7 +199,6 @@ impl Game {
             if self.lives <= 0 {
                 self.state = GameState::GameOver;
             }
-
         }
 
         self.blocks.retain(|block| block.lives > 0);
@@ -169,7 +209,7 @@ impl Game {
         self.draw_game();
     }
 
-    fn draw_game(&mut self){
+    fn draw_game(&mut self) {
         self.player.draw();
         for block in self.blocks.iter() {
             block.draw();
@@ -179,7 +219,12 @@ impl Game {
         }
         let score_text = format!("score: {}", self.score);
         let score_text_dim = measure_text(&score_text, Some(self.font), FONT_SIZE, 1.0);
-        let text_params = TextParams { font: self.font, font_size: FONT_SIZE, color: BLACK, ..Default::default() };
+        let text_params = TextParams {
+            font: self.font,
+            font_size: FONT_SIZE,
+            color: BLACK,
+            ..Default::default()
+        };
         draw_text_ex(
             &score_text,
             screen_width() * 0.5f32 - score_text_dim.width * 0.5f32,
@@ -224,33 +269,32 @@ impl Game {
         match self.state {
             GameState::Menu => {
                 self.state_menu();
-            },
+            }
             GameState::Game => {
                 self.state_game();
-            },
+            }
             GameState::LevelCompleted => {
                 self.state_level_completed();
-            },
+            }
             GameState::GameOver => {
                 self.state_game_over();
-            },
+            }
             GameState::LaunchNewBall => {
                 self.state_launch_new_ball();
             }
         }
-
     }
 }
 
-#[macroquad::main("breakout")]
+#[macroquad::main("Breakdown")]
 async fn main() {
-    let mut game = Game::new().await;
-
+    let scale: Scale = Scale::new(SCALE, SCREEN_SCALE_FACTOR);
+    let mut game = Game::new(scale).await;
 
     loop {
         clear_background(WHITE);
 
-        if is_key_down(KeyCode::Escape){
+        if is_key_down(KeyCode::Escape) {
             break;
         }
 

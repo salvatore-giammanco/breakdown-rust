@@ -1,19 +1,21 @@
+use crate::game::scale::Scale;
 use macroquad::prelude::*;
+
 pub struct Player {
     pub rect: Rect,
     speed: f32,
 }
 
 impl Player {
-    pub fn new(size: Vec2, speed: f32, relative_pos_y: f32) -> Self {
+    pub fn new(size: Vec2, speed: f32, relative_pos_y: f32, scale: Scale) -> Self {
         Self {
             rect: Rect::new(
                 screen_width() * 0.5f32 - size.x * 0.5f32,
                 screen_height() - relative_pos_y,
-                size.x,
-                size.y
+                size.x * scale.total_scale,
+                size.y * scale.total_scale,
             ),
-            speed
+            speed,
         }
     }
 
@@ -31,7 +33,6 @@ impl Player {
         if self.rect.x + self.rect.w >= screen_width() {
             self.rect.x = screen_width() - self.rect.w;
         }
-
     }
 
     pub fn draw(&self) {

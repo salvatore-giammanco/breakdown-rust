@@ -3,20 +3,15 @@ use macroquad::prelude::*;
 pub struct Ball {
     pub rect: Rect,
     pub vel: Vec2,
-    speed: f32
+    speed: f32,
 }
 
 impl Ball {
     pub fn new(position: Vec2, size: f32, speed: f32) -> Self {
         Self {
-            rect: Rect::new(
-                position.x,
-                position.y,
-                size,
-                size
-            ),
+            rect: Rect::new(position.x, position.y, size, size),
             vel: vec2(rand::gen_range(-1f32, 1f32), 1f32).normalize(),
-            speed
+            speed,
         }
     }
 
@@ -35,7 +30,6 @@ impl Ball {
         if self.rect.y < 0f32 {
             self.vel.y = 1f32;
         }
-
     }
 
     pub fn bounce(&mut self, body: &Rect) -> bool {
@@ -49,18 +43,17 @@ impl Ball {
                     // Bounce on y
                     self.rect.y -= to_signum.y * intersection.h;
                     self.vel.y = -to_signum.y * self.vel.y.abs();
-                },
+                }
                 false => {
                     // Bounce on x
                     self.rect.x -= to_signum.x * intersection.w;
                     self.vel.x = -to_signum.x * self.vel.x.abs();
                 }
             }
-            return true
+            return true;
         }
         false
     }
-
 
     pub fn draw(&self) {
         draw_rectangle(self.rect.x, self.rect.y, self.rect.w, self.rect.h, BLUE);
