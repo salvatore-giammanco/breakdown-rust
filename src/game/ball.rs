@@ -43,6 +43,8 @@ impl Ball {
                     // Bounce on y
                     self.rect.y -= to_signum.y * intersection.h;
                     self.vel.y = -to_signum.y * self.vel.y.abs();
+                    // Add some randomness to x
+                    self.vel.x += rand::gen_range(0f32, 0.2f32);
                 }
                 false => {
                     // Bounce on x
