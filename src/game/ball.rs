@@ -30,6 +30,7 @@ impl Ball {
         if self.rect.y < 0f32 {
             self.vel.y = 1f32;
         }
+        self.vel = self.vel.normalize();
     }
 
     pub fn bounce(&mut self, body: &Rect) -> bool {
