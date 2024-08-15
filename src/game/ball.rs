@@ -3,7 +3,8 @@ use macroquad::prelude::*;
 pub struct Ball {
     pub rect: Rect,
     pub vel: Vec2,
-    speed: f32,
+    pub speed: f32,
+    pub super_ball: bool,
 }
 
 impl Ball {
@@ -12,6 +13,16 @@ impl Ball {
             rect: Rect::new(position.x, position.y, size, size),
             vel: vec2(rand::gen_range(-1f32, 1f32), 1f32).normalize(),
             speed,
+            super_ball: false,
+        }
+    }
+
+    pub fn new_super_ball(position: Vec2, size: f32, speed: f32) -> Self {
+        Self {
+            rect: Rect::new(position.x, position.y, size, size),
+            vel: vec2(rand::gen_range(-1f32, 1f32), 1f32).normalize(),
+            speed,
+            super_ball: true,
         }
     }
 
@@ -31,6 +42,10 @@ impl Ball {
             self.vel.y = 1f32;
         }
         self.vel = self.vel.normalize();
+    }
+
+    pub fn random_direction(&mut self) {
+        self.vel = vec2(rand::gen_range(-1f32, 1f32), 1f32).normalize();
     }
 
     pub fn bounce(&mut self, body: &Rect) -> bool {
@@ -59,6 +74,10 @@ impl Ball {
     }
 
     pub fn draw(&self) {
-        draw_rectangle(self.rect.x, self.rect.y, self.rect.w, self.rect.h, BLUE);
+        let color: Color = match self.super_ball {
+            true => GOLD,
+            false => BLUE,
+        };
+        draw_rectangle(self.rect.x, self.rect.y, self.rect.w, self.rect.h, color);
     }
 }

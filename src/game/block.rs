@@ -3,7 +3,7 @@ use macroquad::prelude::*;
 #[derive(PartialEq)]
 pub enum BlockType {
     Regular,
-    SpawnBallOnDeath,
+    Upgrade,
 }
 
 pub struct Block {
@@ -28,7 +28,11 @@ impl Block {
                 1 => ORANGE,
                 _ => BLACK,
             },
-            BlockType::SpawnBallOnDeath => GREEN,
+            BlockType::Upgrade => match self.lives {
+                2 => GREEN,
+                1 => LIME,
+                _ => BLACK,
+            },
         };
         draw_rectangle(self.rect.x, self.rect.y, self.rect.w, self.rect.h, color);
     }
